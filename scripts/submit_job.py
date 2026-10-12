@@ -1,8 +1,10 @@
 """Submit one training job to an existing Azure ML workspace and CPU compute."""
 
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 
 from azure.ai.ml import MLClient, Output, command
@@ -12,6 +14,27 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def source_tags():
+    """Identify the checked-out commit and the actual training-code snapshot."""
+    files = sorted((ROOT / "src").glob("*.py"))
+    digest = hashlib.sha256()
+    for path in files:
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    tags = {"source_sha256": digest.hexdigest()}
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        tags["git_commit"] = result.stdout.strip()
+    return tags
+
+
+def save_record(record):
+    # Store only selected fields; exception messages may contain signed URLs.
+    (ROOT / "cloud-job.json").write_text(json.dumps(record, indent=2) + "\n")
 
 
 def workspace_client():
@@ -28,12 +51,15 @@ def build_job(compute=None, environment_reference=None, instance_type=None):
     environment = environment_reference or Environment(
         name="learn-mlflow-cpu",
         description="Pinned Python 3.11 environment for a small regression exercise.",
-        image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest",
+        image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:20261007.v1",
         conda_file=str(ROOT / "environment" / "conda.yml"),
     )
     job = command(
         code=str(ROOT / "src"),  # Upload only training code, never .env or credentials.
         command=(
+            "python -c \"import mlflow; "
+            "assert mlflow.__version__.split('.')[0] == '2', "
+            "'This lab requires MLflow 2.x; use the pinned custom environment.'\" && "
             "python train.py --seed 42 --ridge-alpha 1.0 --trees 100 "
             "--output-dir outputs --model-output ${{outputs.model}}"
         ),
@@ -45,7 +71,7 @@ def build_job(compute=None, environment_reference=None, instance_type=None):
         experiment_name=os.getenv("AZURE_ML_EXPERIMENT", "learn-mlflow-regression"),
         display_name="compare-ridge-random-forest",
         description="Microsoft Learn adaptation: command job, MLflow tracking, validation selection.",
-        tags={"project": "azure-ml-mlflow-lab", "purpose": "education"},
+        tags={"project": "azure-ml-mlflow-lab", "purpose": "education", **source_tags()},
     )
     job.set_limits(timeout=600)
     return job
@@ -69,7 +95,7 @@ def register_model(client, job_name):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compute", help="Existing CPU compute name; defaults to .env setting.")
-    parser.add_argument("--environment", help="Optional existing Azure ML environment reference.")
+    parser.add_argument("--environment", help="Explicit compatible MLflow 2.x environment override.")
     parser.add_argument("--serverless", action="store_true", help="Use serverless CPU compute.")
     parser.add_argument("--instance-type", help="Required with --serverless; confirm region/quota first.")
     parser.add_argument("--wait", action="store_true", help="Stream logs until the job finishes.")
@@ -87,21 +113,43 @@ def main():
         parser.error("--instance-type is only used with --serverless.")
     elif not compute:
         parser.error("Provide --compute or AZURE_ML_COMPUTE; this script never creates compute.")
-    job = build_job(
-        compute, args.environment or os.getenv("AZURE_ML_ENVIRONMENT"), args.instance_type
-    )
-    submitted = client.jobs.create_or_update(job)
-    record = {"job_name": submitted.name, "status": submitted.status, "studio_url": submitted.studio_url}
-    (ROOT / "cloud-job.json").write_text(json.dumps(record, indent=2) + "\n")
+    # The default is always the pinned environment, even if .env has an old override.
+    job = build_job(compute, args.environment, args.instance_type)
+    record = {"status": "Submitting", **source_tags()}
+    save_record(record)
+    try:
+        submitted = client.jobs.create_or_update(job)
+    except Exception as error:
+        record.update(status="SubmissionFailed", error_type=type(error).__name__)
+        save_record(record)
+        raise RuntimeError("Submission failed; check workspace access and environment build logs.") from None
+    record.update(job_name=submitted.name, status=submitted.status)
+    save_record(record)
     print(json.dumps(record, indent=2))
+    print("Open in Azure ML Studio:", submitted.studio_url)
     if args.wait:
-        client.jobs.stream(submitted.name)
-        finished = client.jobs.get(submitted.name)
-        print(f"Final job status: {finished.status}")
-        if finished.status != "Completed":
+        try:
+            client.jobs.stream(submitted.name)
+        except Exception as error:
+            record["stream_error_type"] = type(error).__name__
+        finally:
+            try:
+                record["status"] = client.jobs.get(submitted.name).status
+            except Exception as error:
+                record["status_check_error_type"] = type(error).__name__
+            save_record(record)
+        print(f"Last observed job status: {record['status']}")
+        if record["status"] != "Completed":
             raise RuntimeError("Job did not complete. Inspect its Studio logs before retrying.")
     if args.register:
-        registered = register_model(client, submitted.name)
+        try:
+            registered = register_model(client, submitted.name)
+        except Exception as error:
+            record["registration_error_type"] = type(error).__name__
+            save_record(record)
+            raise RuntimeError("Training completed but registration failed; inspect the model output.") from None
+        record.update(model_name=registered.name, model_version=registered.version)
+        save_record(record)
         print(f"Registered model: {registered.name}, version {registered.version}")
 
 

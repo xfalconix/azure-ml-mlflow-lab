@@ -31,6 +31,16 @@ Forest or that either model is suitable for clinical decisions.
 
 ## Azure verification
 
-Cloud execution and model registration are pending. No Azure result is claimed
-by the local evidence above. Add the actual completed job and model version here
-after they have been verified in the workspace.
+The first Azure job, `loving_star_rs0613p9xk`, used source commit `707d44b` and the
+curated `sklearn-1.5` environment, version 55. Its installed MLflow 3 called the
+`/api/2.0/mlflow/logged-models` endpoint, which returned HTTP 404. The job failed
+while logging the first candidate model, before final model selection or test-set
+evaluation. This is a runtime compatibility failure, not a poor test result.
+
+The submission default now uses the custom pinned MLflow 2.22.5 environment. A
+runtime check rejects incompatible major versions before training. The job record
+also stores the Git commit and a hash of the uploaded training source, and records
+the final observed status even when log streaming raises an error.
+
+A completed cloud run and model registration are still pending. The local scores
+above must not be presented as Azure execution results.
