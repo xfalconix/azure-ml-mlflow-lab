@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+outputs/
+mlruns/
+mlflow.db
+mlflow.db-*
+cloud-job.json
+cloud-download/
+*.log
