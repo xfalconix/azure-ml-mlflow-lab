@@ -85,13 +85,15 @@ Alternatively, serverless CPU compute can be requested explicitly:
 
 ```bash
 python scripts/submit_job.py --serverless --instance-type YOUR_AVAILABLE_CPU_SKU \
-  --environment azureml:YOUR_ENVIRONMENT:VERSION --wait --register
+  --wait --register
 ```
 
-Choose a size available in your region and subscription quota. A curated environment
-such as `azureml://registries/azureml/environments/sklearn-1.5/labels/latest` can avoid
-a custom build, but record its resolved version and installed packages with the
-results because its dependencies differ from the local pins.
+Choose a size available in your region and subscription quota. This uses the same
+pinned environment as the cluster option: Python 3.11 and MLflow 2.22.5. A runtime
+check stops an incompatible MLflow major version before training. An environment
+override must have compatible packages; a familiar environment name alone is not
+enough. The first cloud attempt exposed this issue and is documented in the
+[execution notes](evidence/README.md).
 
 The submission script uploads only `src/`, uses one instance, and limits the job
 to 10 minutes. It does not create a workspace, start a compute instance, deploy
