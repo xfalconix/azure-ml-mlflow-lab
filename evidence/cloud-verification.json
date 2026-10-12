@@ -1,0 +1,58 @@
+{
+  "verified_at_utc": "2026-10-12T21:23:27.331061+00:00",
+  "job_name": "blue_pump_9s8swsvlpv",
+  "job_status": "Completed",
+  "training_source_commit": "cfda13a50a5eb6fef8bffeb1d2f947319743452f",
+  "training_source_sha256": "19d8b73229c8696d818d9f354c0600519b61ef7df0038d7bf3703a6c1ebc45fe",
+  "compute": {
+    "mode": "serverless",
+    "instance_type": "Standard_DS2_v2",
+    "instance_count": 1,
+    "cores": 2
+  },
+  "environment": {
+    "name": "learn-mlflow-cpu",
+    "version": "1",
+    "built_image_digest": "sha256:b5e96bc6ac97d1be843b8147bb20bb1c993b1ca9e0d8524abbcb75e49ad958d9"
+  },
+  "parent_run_status": "FINISHED",
+  "parent_start_utc": "2026-10-12T21:17:57.247000+00:00",
+  "parent_end_utc": "2026-10-12T21:20:28.860000+00:00",
+  "candidate_runs": [
+    {
+      "run_id": "3c0a8a99-4476-4202-914c-852008573220",
+      "status": "FINISHED",
+      "model": "ridge",
+      "metrics": {
+        "validation_mae": 42.723049673478016,
+        "validation_r2": 0.5233405615503282,
+        "validation_rmse": 51.10314502902914
+      }
+    },
+    {
+      "run_id": "3488b045-a043-4e68-8463-dc4edf2e392e",
+      "status": "FINISHED",
+      "model": "random_forest",
+      "metrics": {
+        "validation_mae": 43.36157150576585,
+        "validation_r2": 0.4694084768510236,
+        "validation_rmse": 53.916747259812944
+      }
+    }
+  ],
+  "registered_model": {
+    "name": "learn-diabetes-regressor",
+    "version": "1",
+    "type": "mlflow_model"
+  },
+  "reloaded_registered_output": true,
+  "input_signature_present": true,
+  "reloaded_model_test_metrics": {
+    "mae": 42.81199941834889,
+    "rmse": 53.7774540653439,
+    "r2": 0.454146520706982
+  },
+  "finite_predictions": true,
+  "inference_endpoint_deployed": false,
+  "artifact_retrieval": "Authenticated read from workspace storage; SDK bulk download raised a response-schema TypeError."
+}

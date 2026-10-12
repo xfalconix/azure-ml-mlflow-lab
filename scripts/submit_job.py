@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 from azure.ai.ml import MLClient, Output, command
@@ -35,6 +36,23 @@ def source_tags():
 def save_record(record):
     # Store only selected fields; exception messages may contain signed URLs.
     (ROOT / "cloud-job.json").write_text(json.dumps(record, indent=2) + "\n")
+
+
+def wait_for_job(client, job_name, record):
+    """Poll job state independently of the temporary URLs used to stream logs."""
+    previous_status = None
+    while True:
+        status = client.jobs.get(job_name).status
+        record["status"] = status
+        save_record(record)
+        if status != previous_status:
+            print(f"Job status: {status}", flush=True)
+            previous_status = status
+        if status == "Completed":
+            return
+        if status in {"Failed", "Canceled", "NotResponding"}:
+            raise RuntimeError(f"Job ended with status {status}; inspect its Studio logs.")
+        time.sleep(10)
 
 
 def workspace_client():
@@ -98,7 +116,7 @@ def main():
     parser.add_argument("--environment", help="Explicit compatible MLflow 2.x environment override.")
     parser.add_argument("--serverless", action="store_true", help="Use serverless CPU compute.")
     parser.add_argument("--instance-type", help="Required with --serverless; confirm region/quota first.")
-    parser.add_argument("--wait", action="store_true", help="Stream logs until the job finishes.")
+    parser.add_argument("--wait", action="store_true", help="Poll status until the job finishes.")
     parser.add_argument("--register", action="store_true", help="Register after a successful job.")
     args = parser.parse_args()
     if args.register and not args.wait:
@@ -128,19 +146,7 @@ def main():
     print(json.dumps(record, indent=2))
     print("Open in Azure ML Studio:", submitted.studio_url)
     if args.wait:
-        try:
-            client.jobs.stream(submitted.name)
-        except Exception as error:
-            record["stream_error_type"] = type(error).__name__
-        finally:
-            try:
-                record["status"] = client.jobs.get(submitted.name).status
-            except Exception as error:
-                record["status_check_error_type"] = type(error).__name__
-            save_record(record)
-        print(f"Last observed job status: {record['status']}")
-        if record["status"] != "Completed":
-            raise RuntimeError("Job did not complete. Inspect its Studio logs before retrying.")
+        wait_for_job(client, submitted.name, record)
     if args.register:
         try:
             registered = register_model(client, submitted.name)

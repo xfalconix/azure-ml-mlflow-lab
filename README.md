@@ -10,6 +10,11 @@ The original Microsoft exercise uses classification. This version uses a bundled
 regression dataset, compares two models on the same validation split, and keeps a
 separate test set. It is a learning project, not a clinical application.
 
+**Verified in Azure on 12 October 2026:** one completed command job, two tracked
+candidate runs, and `learn-diabetes-regressor` registered as version 1. Ridge won
+on validation MAE; its held-out test MAE was **42.812**. The registered output was
+downloaded and reloaded successfully. [See the execution evidence](evidence/README.md).
+
 ## The workflow
 
 ```mermaid
@@ -106,6 +111,10 @@ the two candidate runs, metrics, model output and evaluation plot. `--register`
 creates a versioned model asset after successful training; registration does not
 deploy a serving endpoint.
 
+`--wait` polls job status and stores it in the ignored `cloud-job.json` file.
+Use Studio to read the training logs. Interrupting the local wait does not cancel
+the cloud job: cancel it explicitly in Studio if you want to stop it.
+
 ## Evaluation choices
 
 - **Baseline:** predict the training mean, scored on validation data.
@@ -124,7 +133,8 @@ deploy a serving endpoint.
 
 See [evidence/README.md](evidence/README.md) for results actually executed. Local
 and Azure evidence are labelled separately. The three tests check disjoint
-partitions, validation-only selection, and train-only scaler fitting.
+partitions, validation-only selection, and train-only scaler fitting. Two further
+checks cover job completion and preventing registration after failure/cancellation.
 
 ## Project files
 

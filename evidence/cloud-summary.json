@@ -1,0 +1,43 @@
+{
+  "executed_at_utc": "2026-10-12T21:20:20.487725+00:00",
+  "execution": "azure",
+  "parent_run_id": "blue_pump_9s8swsvlpv",
+  "dataset": "scikit-learn diabetes (raw features)",
+  "seed": 42,
+  "split_rows": {
+    "train": 264,
+    "validation": 89,
+    "test": 89
+  },
+  "baseline_validation_mae": 64.12878787878789,
+  "candidates": [
+    {
+      "model": "ridge",
+      "run_id": "3c0a8a99-4476-4202-914c-852008573220",
+      "validation_mae": 42.723049673478016,
+      "validation_rmse": 51.10314502902914,
+      "validation_r2": 0.5233405615503282
+    },
+    {
+      "model": "random_forest",
+      "run_id": "3488b045-a043-4e68-8463-dc4edf2e392e",
+      "validation_mae": 43.36157150576585,
+      "validation_rmse": 53.916747259812944,
+      "validation_r2": 0.4694084768510236
+    }
+  ],
+  "selected_model": "ridge",
+  "selection_rule": "lowest validation MAE; test excluded from selection",
+  "test_metrics": {
+    "mae": 42.81199941834889,
+    "rmse": 53.7774540653439,
+    "r2": 0.454146520706982
+  },
+  "runtime": {
+    "python": "3.11.17",
+    "scikit-learn": "1.7.2",
+    "mlflow": "2.22.5",
+    "numpy": "1.26.4",
+    "pandas": "2.3.1"
+  }
+}
